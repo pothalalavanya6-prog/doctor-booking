@@ -1,0 +1,10 @@
+import { Ionicons } from '@expo/vector-icons';
+import { ReactNode } from 'react';
+import { Pressable, StyleSheet, Text, TextInput, TextInputProps, View } from 'react-native';
+export const colors = { green: '#5FAF45', darkGreen: '#3D7C2A', ink: '#111111', muted: '#707070', border: '#E4E4E4', soft: '#F2F8F0', white: '#FFFFFF' };
+export function Header({ title, onBack }: { title: string; onBack?: () => void }) { return <View style={styles.header}>{onBack && <Pressable onPress={onBack} style={styles.back}><Ionicons name="arrow-back" size={22} color={colors.ink} /></Pressable>}<Text style={styles.headerTitle}>{title}</Text></View>; }
+export function PrimaryButton({ title, onPress, disabled = false }: { title: string; onPress: () => void; disabled?: boolean }) { return <Pressable onPress={onPress} disabled={disabled} style={[styles.button, disabled && styles.disabled]}><Text style={styles.buttonText}>{title}</Text></Pressable>; }
+export function Field({ label, ...props }: TextInputProps & { label: string }) { return <View style={styles.field}><Text style={styles.label}>{label}</Text><TextInput placeholderTextColor="#999" style={styles.input} {...props} /></View>; }
+export function SectionTitle({ children }: { children: ReactNode }) { return <Text style={styles.sectionTitle}>{children}</Text>; }
+export const uiStyles = styles;
+const styles = StyleSheet.create({ header: { height: 58, flexDirection: 'row', alignItems: 'center', gap: 12 }, back: { padding: 6 }, headerTitle: { fontSize: 20, fontWeight: '700', color: colors.ink }, button: { backgroundColor: colors.green, minHeight: 52, borderRadius: 12, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 }, buttonText: { color: colors.white, fontSize: 16, fontWeight: '700' }, disabled: { opacity: 0.45 }, field: { marginBottom: 16 }, label: { color: colors.ink, fontSize: 13, fontWeight: '700', marginBottom: 7 }, input: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 13, color: colors.ink, fontSize: 15, backgroundColor: colors.white }, sectionTitle: { fontSize: 18, fontWeight: '700', color: colors.ink, marginBottom: 14 } });
