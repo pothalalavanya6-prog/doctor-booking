@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, Header, PrimaryButton } from '../components/UI';
+import { BookingStepper, colors, Header, PrimaryButton } from '../components/UI';
 import { useBooking } from '../context/BookingContext';
 import { Gender, PatientDetails, RootStackParamList } from '../types';
 
@@ -21,12 +21,96 @@ export function PatientDetailsScreen({ navigation }: Props) {
     problem: '',
   });
 
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
 
-  const update = (key: keyof PatientDetails, value: string) =>
+  const update = (key: keyof PatientDetails, value: string) => {
     setForm((current) => ({ ...current, [key]: value }));
+  };
 
-  const valid = form.fullName && form.age && form.phone && form.address && form.problem;
+  const handleBlur = (key: keyof PatientDetails) => {
+    setTouched((prev) => ({ ...prev, [key]: true }));
+  };
+
+  // Helper to detect random repeated characters or keyboard mashing (e.g. "asdfghjk", "qwertyuiop", "aaaaaa")
+  const isRandomGibberish = (text: string): boolean => {
+    const clean = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+    if (!clean) return true;
+    // 5 or more repeated identical characters like "aaaaa" or "11111"
+    if (/(.)\1{4,}/.test(clean)) return true;
+    // Common keyboard mash row patterns
+    const mashPatterns = ['qwerty', 'asdfgh', 'zxcvbn', '123456', 'abcdef', '987654', '00000', '11111', '99999'];
+    if (mashPatterns.some((pattern) => clean.includes(pattern))) return true;
+    return false;
+  };
+
+  // Strict Field validation rules
+  const getErrors = () => {
+    const errors: Partial<Record<keyof PatientDetails, string>> = {};
+
+    const name = form.fullName.trim();
+    const nameRegex = /^[a-zA-Z\s'.]{3,50}$/;
+    if (!name) {
+      errors.fullName = 'Full name is required';
+    } else if (!nameRegex.test(name) || isRandomGibberish(name)) {
+      errors.fullName = 'Enter a valid full name with correct spelling (letters only)';
+    }
+
+    const ageNum = parseInt(form.age.trim(), 10);
+    if (!form.age.trim()) {
+      errors.age = 'Age is required';
+    } else if (isNaN(ageNum) || ageNum < 1 || ageNum > 120) {
+      errors.age = 'Enter a valid age (1 - 120)';
+    }
+
+    const cleanPhone = form.phone.replace(/[^0-9]/g, '');
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!form.phone.trim()) {
+      errors.phone = 'Phone number is required';
+    } else if (!phoneRegex.test(cleanPhone) || /(.)\1{9}/.test(cleanPhone) || cleanPhone === '1234567890') {
+      errors.phone = 'Enter a valid 10-digit mobile number starting with 6-9';
+    }
+
+    const address = form.address.trim();
+    if (!address) {
+      errors.address = 'Complete home address is required';
+    } else if (address.length < 8 || isRandomGibberish(address)) {
+      errors.address = 'Please enter a valid, complete home address';
+    }
+
+    const problem = form.problem.trim();
+    if (!problem) {
+      errors.problem = 'Please describe the health issue';
+    } else if (problem.length < 5 || isRandomGibberish(problem)) {
+      errors.problem = 'Please provide a clear description of the health issue';
+    }
+
+    return errors;
+  };
+
+  const errors = getErrors();
+  const isValid = Object.keys(errors).length === 0;
+
+  const shouldShowError = (field: keyof PatientDetails) => {
+    return Boolean((touched[field] || attemptedSubmit) && errors[field]);
+  };
+
+  const handleProceed = () => {
+    setAttemptedSubmit(true);
+    setTouched({
+      fullName: true,
+      age: true,
+      phone: true,
+      address: true,
+      problem: true,
+    });
+
+    if (isValid) {
+      savePatient(form);
+      navigation.navigate('Payment');
+    }
+  };
 
   const useLiveLocation = async () => {
     if (isLocating) return;
@@ -98,6 +182,7 @@ export function PatientDetailsScreen({ navigation }: Props) {
           bounces={true}
         >
           <Header title="Patient details" onBack={() => navigation.goBack()} />
+          <BookingStepper currentStep={2} />
 
           {/* Green Theme Top Banner */}
           <View style={styles.greenBanner}>
@@ -110,37 +195,61 @@ export function PatientDetailsScreen({ navigation }: Props) {
             </View>
           </View>
 
+          {attemptedSubmit && !isValid && (
+            <View style={styles.topErrorNotice}>
+              <Ionicons name="alert-circle" size={18} color="#D32F2F" />
+              <Text style={styles.topErrorText}>
+                Please fill all patient details correctly before proceeding.
+              </Text>
+            </View>
+          )}
+
           {/* Form Card Container */}
           <View style={styles.formCard}>
             {/* Full Name */}
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
                 <Ionicons name="person-outline" size={16} color={colors.darkGreen} />
-                <Text style={styles.label}>Full name</Text>
+                <Text style={styles.label}>Full name *</Text>
               </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, shouldShowError('fullName') && styles.inputError]}
                 placeholder="Enter full name"
                 placeholderTextColor="#888"
                 value={form.fullName}
-                onChangeText={(value) => update('fullName', value)}
+                onChangeText={(value) => update('fullName', value.replace(/[^a-zA-Z\s'.]/g, ''))}
+                onBlur={() => handleBlur('fullName')}
               />
+              {shouldShowError('fullName') && (
+                <View style={styles.errorRow}>
+                  <Ionicons name="alert-circle-outline" size={14} color="#D32F2F" />
+                  <Text style={styles.errorText}>{errors.fullName}</Text>
+                </View>
+              )}
             </View>
 
             {/* Age */}
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
                 <Ionicons name="calendar-outline" size={16} color={colors.darkGreen} />
-                <Text style={styles.label}>Age</Text>
+                <Text style={styles.label}>Age *</Text>
               </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, shouldShowError('age') && styles.inputError]}
                 placeholder="Enter age"
                 placeholderTextColor="#888"
                 keyboardType="number-pad"
+                maxLength={3}
                 value={form.age}
-                onChangeText={(value) => update('age', value)}
+                onChangeText={(value) => update('age', value.replace(/[^0-9]/g, ''))}
+                onBlur={() => handleBlur('age')}
               />
+              {shouldShowError('age') && (
+                <View style={styles.errorRow}>
+                  <Ionicons name="alert-circle-outline" size={14} color="#D32F2F" />
+                  <Text style={styles.errorText}>{errors.age}</Text>
+                </View>
+              )}
             </View>
 
             {/* Gender */}
@@ -169,16 +278,24 @@ export function PatientDetailsScreen({ navigation }: Props) {
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
                 <Ionicons name="call-outline" size={16} color={colors.darkGreen} />
-                <Text style={styles.label}>Phone number</Text>
+                <Text style={styles.label}>Phone number *</Text>
               </View>
               <TextInput
-                style={styles.input}
+                style={[styles.input, shouldShowError('phone') && styles.inputError]}
                 placeholder="10-digit mobile number"
                 placeholderTextColor="#888"
                 keyboardType="phone-pad"
+                maxLength={10}
                 value={form.phone}
-                onChangeText={(value) => update('phone', value)}
+                onChangeText={(value) => update('phone', value.replace(/[^0-9]/g, ''))}
+                onBlur={() => handleBlur('phone')}
               />
+              {shouldShowError('phone') && (
+                <View style={styles.errorRow}>
+                  <Ionicons name="alert-circle-outline" size={14} color="#D32F2F" />
+                  <Text style={styles.errorText}>{errors.phone}</Text>
+                </View>
+              )}
             </View>
 
             {/* Complete Home Address with Unique Integrated Live Location Chip */}
@@ -186,7 +303,7 @@ export function PatientDetailsScreen({ navigation }: Props) {
               <View style={styles.addressHeaderRow}>
                 <View style={styles.labelRow}>
                   <Ionicons name="location-sharp" size={16} color={colors.green} />
-                  <Text style={styles.label}>Complete home address</Text>
+                  <Text style={styles.label}>Complete home address *</Text>
                 </View>
                 <Pressable
                   onPress={useLiveLocation}
@@ -204,44 +321,52 @@ export function PatientDetailsScreen({ navigation }: Props) {
                 </Pressable>
               </View>
               <TextInput
-                style={[styles.input, styles.multilineInput]}
+                style={[styles.input, styles.multilineInput, shouldShowError('address') && styles.inputError]}
                 placeholder="House no., street, area"
                 placeholderTextColor="#888"
                 multiline
                 numberOfLines={3}
                 value={form.address}
                 onChangeText={(value) => update('address', value)}
+                onBlur={() => handleBlur('address')}
               />
+              {shouldShowError('address') && (
+                <View style={styles.errorRow}>
+                  <Ionicons name="alert-circle-outline" size={14} color="#D32F2F" />
+                  <Text style={styles.errorText}>{errors.address}</Text>
+                </View>
+              )}
             </View>
 
             {/* Problem / Reason for visit */}
             <View style={styles.fieldGroup}>
               <View style={styles.labelRow}>
                 <Ionicons name="medkit-outline" size={16} color={colors.darkGreen} />
-                <Text style={styles.label}>About health issue</Text>
+                <Text style={styles.label}>About health issue *</Text>
               </View>
               <TextInput
-                style={[styles.input, styles.multilineInput]}
+                style={[styles.input, styles.multilineInput, shouldShowError('problem') && styles.inputError]}
                 placeholder="Briefly describe the health issue"
                 placeholderTextColor="#888"
                 multiline
                 numberOfLines={3}
                 value={form.problem}
                 onChangeText={(value) => update('problem', value)}
+                onBlur={() => handleBlur('problem')}
               />
+              {shouldShowError('problem') && (
+                <View style={styles.errorRow}>
+                  <Ionicons name="alert-circle-outline" size={14} color="#D32F2F" />
+                  <Text style={styles.errorText}>{errors.problem}</Text>
+                </View>
+              )}
             </View>
           </View>
 
           <View style={styles.buttonContainer}>
             <PrimaryButton
               title="Review payment"
-              disabled={!valid}
-              onPress={() => {
-                if (valid) {
-                  savePatient(form);
-                  navigation.navigate('Payment');
-                }
-              }}
+              onPress={handleProceed}
             />
           </View>
         </ScrollView>
@@ -357,6 +482,40 @@ const styles = StyleSheet.create({
   },
   liveLocationChipText: { color: '#FFFFFF', fontSize: 12, fontWeight: '700' },
   liveLocationChipDisabled: { opacity: 0.75, backgroundColor: '#488A34' },
+
+  // Error Banner & Input Error Styles
+  topErrorNotice: {
+    backgroundColor: '#FDE8E8',
+    borderWidth: 1,
+    borderColor: '#F8B4B4',
+    borderRadius: 12,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  topErrorText: {
+    color: '#D32F2F',
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
+  inputError: {
+    borderColor: '#E53935',
+    backgroundColor: '#FFF8F8',
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 6,
+  },
+  errorText: {
+    color: '#D32F2F',
+    fontSize: 12,
+    fontWeight: '600',
+  },
 
   buttonContainer: { marginTop: 8, marginBottom: 20 },
 });

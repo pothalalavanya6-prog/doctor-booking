@@ -1,8 +1,8 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors, Header, PrimaryButton } from '../components/UI';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { BookingStepper, colors, Header, PrimaryButton } from '../components/UI';
 import { useBooking } from '../context/BookingContext';
 import { doctors, getDateKey } from '../mockData';
 import { RootStackParamList } from '../types';
@@ -10,6 +10,7 @@ import { RootStackParamList } from '../types';
 type Props = NativeStackScreenProps<RootStackParamList, 'Availability'>;
 
 export function AvailabilityScreen({ navigation, route }: Props) {
+  const insets = useSafeAreaInsets();
   const { selectedDoctor, chooseSlot } = useBooking();
   const doctor = selectedDoctor ?? doctors.find((item) => item.id === route.params.doctorId)!;
   const [date, setDate] = useState(getDateKey(0));
@@ -30,9 +31,18 @@ export function AvailabilityScreen({ navigation, route }: Props) {
   return (
     <View style={styles.overlay}>
       <Pressable style={styles.backdrop} onPress={() => navigation.goBack()} />
-      <SafeAreaView style={styles.sheet}>
-        <ScrollView contentContainerStyle={styles.container}>
+      <View style={styles.sheet}>
+        <View style={styles.handle} />
+        <View style={{ paddingHorizontal: 16, paddingTop: 2 }}>
           <Header title="Choose a time" onBack={() => navigation.goBack()} />
+        </View>
+        <BookingStepper currentStep={1} />
+
+        <ScrollView
+          contentContainerStyle={styles.container}
+          showsVerticalScrollIndicator={false}
+          bounces={true}
+        >
           <View style={styles.doctor}>
             <View style={styles.avatar}>
               {doctor.avatar ? (
@@ -78,7 +88,10 @@ export function AvailabilityScreen({ navigation, route }: Props) {
               </Pressable>
             ))}
           </View>
+        </ScrollView>
 
+        {/* Fixed Sticky Footer for Button */}
+        <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
           <PrimaryButton
             title="Continue to patient details"
             disabled={!selected}
@@ -89,32 +102,54 @@ export function AvailabilityScreen({ navigation, route }: Props) {
               }
             }}
           />
-        </ScrollView>
-      </SafeAreaView>
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0, 0, 0, 0.28)' },
-  sheet: { maxHeight: '88%', backgroundColor: colors.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden' },
-  container: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 20 },
-  doctor: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.soft, padding: 14, borderRadius: 14, marginTop: 8 },
+  backdrop: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(0, 0, 0, 0.45)' },
+  sheet: {
+    maxHeight: '85%',
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: 'hidden',
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#DDD',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 10,
+    marginBottom: 4,
+  },
+  container: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 16 },
+  doctor: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.soft, padding: 12, borderRadius: 14, marginTop: 4 },
   avatar: { width: 47, height: 47, borderRadius: 24, backgroundColor: colors.white, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
   avatarImage: { width: 47, height: 47, borderRadius: 24 },
   initials: { color: colors.darkGreen, fontWeight: '800' },
   name: { fontWeight: '800', color: colors.ink, fontSize: 16, marginLeft: 12 },
   specialty: { color: colors.muted, marginLeft: 12, marginTop: 4 },
-  title: { fontSize: 18, fontWeight: '800', marginTop: 20, marginBottom: 12, color: colors.ink },
+  title: { fontSize: 16, fontWeight: '800', marginTop: 16, marginBottom: 10, color: colors.ink },
   days: { flexDirection: 'row', gap: 9 },
-  day: { borderWidth: 1, borderColor: colors.border, borderRadius: 11, paddingVertical: 12, alignItems: 'center', width: 70 },
+  day: { borderWidth: 1, borderColor: colors.border, borderRadius: 11, paddingVertical: 10, alignItems: 'center', width: 70 },
   dayActive: { backgroundColor: colors.green, borderColor: colors.green },
   dayName: { color: colors.muted, fontSize: 12 },
-  dayNumber: { color: colors.ink, fontSize: 18, fontWeight: '800', marginTop: 5 },
+  dayNumber: { color: colors.ink, fontSize: 18, fontWeight: '800', marginTop: 3 },
   activeText: { color: colors.white },
-  slots: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 30 },
-  slot: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 13, paddingHorizontal: 15 },
+  slots: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
+  slot: { borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingVertical: 11, paddingHorizontal: 15 },
   slotActive: { backgroundColor: colors.green, borderColor: colors.green },
   slotText: { color: colors.ink, fontWeight: '700' },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
 });

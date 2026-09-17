@@ -27,6 +27,9 @@ export function ConfirmationScreen({ navigation }: Props) {
     Linking.openURL(`whatsapp://send?phone=${booking.patient.phone}&text=${message}`);
   };
 
+  const isNurse = booking.doctor.name.startsWith('Nurse') || booking.doctor.issueIds?.includes('nursing');
+  const professionalTitle = isNurse ? 'nurse' : 'doctor';
+
   return (
     <SafeAreaView style={styles.safe}>
       <ScrollView contentContainerStyle={styles.container}>
@@ -35,7 +38,7 @@ export function ConfirmationScreen({ navigation }: Props) {
             <Ionicons name="checkmark" size={35} color={colors.white} />
           </View>
           <Text style={styles.heading}>Booking confirmed</Text>
-          <Text style={styles.sub}>Your doctor is on the way to better care.</Text>
+          <Text style={styles.sub}>Your {professionalTitle} is on the way for your home visit.</Text>
         </View>
 
         <View style={styles.receipt}>
